@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小小键盘乐园</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif;
+    user-select: none;
+    cursor: default;
+  }
+  body {
+    background: #FFE8D6;
+    transition: background 0.6s ease;
+  }
+  /* 开场提示 */
+  #welcome {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 24px;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #welcome .face { width: 160px; animation: bob 2s ease-in-out infinite; }
+  #welcome .hint {
+    font-size: 48px; font-weight: 700; color: #6b4f3a;
+    background: rgba(255,255,255,0.75);
+    padding: 16px 40px; border-radius: 999px;
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0) rotate(-4deg); }
+    50% { transform: translateY(-24px) rotate(4deg); }
+  }
+  /* 从中心炸开的 emoji */
+  .pop {
+    position: fixed;
+    left: 50vw; top: 50vh;
+    width: var(--size, 100px);
+    opacity: 0;
+    animation: burst 1.5s cubic-bezier(0.15, 0.6, 0.3, 1) both;
+    animation-delay: var(--delay, 0s);
+    pointer-events: none;
+    z-index: 5;
+  }
+  @keyframes burst {
+    0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+    8%   { opacity: 1; }
+    60%  { transform: translate(calc(-50% + var(--dx) * 0.8), calc(-50% + var(--dy) * 0.8))
+                    scale(1) rotate(calc(var(--rot) * 0.6)); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
+                    scale(0.5) rotate(var(--rot)); opacity: 0; }
+  }
+  /* 中央大字母 */
+  #bigChar {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40vmin; font-weight: 800; color: rgba(0,0,0,0.55);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 4;
+  }
+  #bigChar.show { animation: charFlash 0.9s ease forwards; }
+  @keyframes charFlash {
+    0% { opacity: 0; transform: scale(0.6); }
+    30% { opacity: 1; transform: scale(1.05); }
+    70% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+<div id="welcome">
+  <img class="face" src="emojis/1f388.svg" alt="">
+  <div class="hint">按任意键开始玩！</div>
+</div>
+<div id="bigChar"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var EMOJIS = [
+    // 动物
+    "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯",
+    "🦁","🐮","🐷","🐸","🐵","🙈","🐔","🐧","🐦","🐤",
+    "🐥","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄","🐝",
+    "🐛","🦋","🐌","🐞","🐜","🪲","🐢","🐍","🦎","🦂",
+    "🐙","🦑","🦐","🦀","🐡","🐠","🐟","🐬","🐳","🐋",
+    "🦈","🐊","🐅","🐆","🦓","🦍","🐘","🦛","🦏","🐪",
+    "🐫","🦒","🦘","🐃","🐂","🐄","🐎","🐖","🐏","🐑",
+    "🦙","🐐","🦌","🐕","🐩","🦮","🐈","🐓","🦃","🦚",
+    "🦜","🦢","🦩","🕊️","🐇","🦝","🦨","🦡","🦦","🦥",
+    "🐁","🐀","🦔","🐾","🦖","🦕","🐲",
+    // 食物
+    "🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍈",
+    "🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦",
+    "🥬","🥒","🌶️","🌽","🥕","🧄","🧅","🥔","🍠","🥐",
+    "🍞","🥖","🥨","🧀","🥚","🍳","🧇","🥞","🧈","🥓",
+    "🍗","🍖","🌭","🍔","🍟","🍕","🥪","🥙","🌮","🌯",
+    "🥗","🍝","🍜","🍲","🍛","🍣","🍱","🥟","🍤","🍙",
+    "🍚","🍘","🍥","🥠","🍢","🍡","🍧","🍨","🍦","🥧",
+    "🧁","🍰","🎂","🍮","🍭","🍬","🍫","🍿","🍩","🍪",
+    "🥛","🍼","🧃","🧋","🍯",
+    // 自然与物品
+    "🌈","⭐","🌟","✨","⚡","☀️","🌤️","⛅","🌙","🌍",
+    "🌸","🌺","🌻","🌷","🌹","💐","🌼","🍀","🍁","🍂",
+    "🍃","🌴","🌵","🎄","🎋","🎍","🍄","🌰","💧","🔥",
+    "❄️","☃️","🌊","🎈","🎉","🎊","🎁","🎀","🎃","🎄",
+    "🎆","🎇","🧸","🪀","🎠","🪁","🎨","🖍️","📚","🧩",
+    "🪄","💎","👑","🎩","👓","🎒","👟","🧢","🧤","🧣",
+    // 交通与运动
+    "🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐",
+    "🚚","🚛","🚜","🛴","🚲","🛵","🏍️","🛺","🚨","🚔",
+    "🚂","🚃","🚄","🚅","✈️","🛩️","🚀","🛸","🚁","⛵",
+    "🚤","🛥️","🛳️","⚓","🚢","🎡","🎢","🎪","⛺","🏰",
+    "🏠","⛽","🗼","🗽","⚽","🏀","🏈","⚾","🎾","🏐",
+    "🏉","🎱","🏓","🏸","🥅","⛳","🎣","🥊","🥋","🎽",
+    "🛹","🛼","🎿","⛸️","🏆","🥇","🎯","🎮","🎲","♟️",
+    // 音乐与符号
+    "🎵","🎶","🎤","🎧","🎼","🎹","🥁","🎷","🎺","🎸",
+    "🪕","🎻","📯","❤️","🧡","💛","💚","💙","💜","💖",
+    "💯","💢","💥","💫","💦","💨","🕳️","👋","👏","🙌",
+    "👍","✌️","🤞","🤟","🤘","👶","🧒","👦","👧","😀",
+    "😄","😁","😆","😂","🤣","😊","😇","🙂","😉","😍",
+    "🥰","😘","😜","🤪","😝","🤗","🤭","🤫","🥳","😎"
+  ];
+
+  var COLORS = [
+    "#FFE8D6","#DDF0FF","#E5FFE0","#FFF3C4","#FFE0F0",
+    "#E8E0FF","#D6FFF4","#FFEDD6","#E0F7FF","#FBE4FF"
+  ];
+
+  var NOTES = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659]; // C 大调音阶
+
+  var audioCtx = null;
+  var lastTime = 0;
+  var started = false;
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  }
+
+  function playNote() {
+    if (!audioCtx) return;
+    var t = audioCtx.currentTime;
+    var freq = NOTES[Math.floor(Math.random() * NOTES.length)];
+    // 随机挑选一种“乐器”
+    var style = Math.floor(Math.random() * 6);
+    if (style === 0) {
+      // 叮：柔和正弦
+      tone("sine", freq, freq, t, 0.5, 0.25);
+    } else if (style === 1) {
+      // 啵：上滑音（像气泡弹出）
+      tone("sine", freq / 2, freq * 1.5, t, 0.3, 0.3);
+    } else if (style === 2) {
+      // 木琴：三角波 + 短促衰减 + 高八度泛音
+      tone("triangle", freq, freq, t, 0.35, 0.2);
+      tone("sine", freq * 2, freq * 2, t, 0.25, 0.08);
+    } else if (style === 3) {
+      // 小号感：方波，轻一点
+      tone("square", freq, freq, t, 0.3, 0.08);
+    } else if (style === 4) {
+      // 哇呜：锯齿波下滑
+      tone("sawtooth", freq * 1.5, freq / 2, t, 0.45, 0.12);
+    } else {
+      // 双音：快速两连音（do -> sol）
+      tone("triangle", freq, freq, t, 0.18, 0.2);
+      tone("triangle", freq * 1.5, freq * 1.5, t + 0.16, 0.3, 0.2);
+    }
+  }
+
+  // 通用发声：指定波形、起止频率（可滑音）、时长、音量
+  function tone(type, freqStart, freqEnd, startTime, duration, volume) {
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freqStart, startTime);
+    if (freqEnd !== freqStart) {
+      osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
+    }
+    gain.gain.setValueAtTime(volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  }
+
+  // emoji 字符 -> 本地 Twemoji SVG 文件名（去掉 FE0F 变体选择符）
+  function emojiFile(emoji) {
+    return Array.from(emoji)
+      .map(function (c) { return c.codePointAt(0).toString(16); })
+      .filter(function (h) { return h !== "fe0f"; })
+      .join("-") + ".svg";
+  }
+
+  // 每次按键：emoji 从屏幕中心喷涌而出，随后一波比一波少、间隔越来越长
+  function spawnEmoji() {
+    var waves = [8, 6, 4, 3, 2, 1]; // 每波数量逐渐减少
+    var maxDist = Math.hypot(window.innerWidth, window.innerHeight) / 2;
+    var delay = 0;
+    waves.forEach(function (count, wi) {
+      setTimeout(function () { emitWave(count, maxDist * (1 - wi * 0.13)); }, delay);
+      delay += 120 + wi * 70; // 波与波之间间隔逐渐拉长
+    });
+  }
+
+  // 喷出一波 emoji
+  function emitWave(count, maxDist) {
+    for (var i = 0; i < count; i++) {
+      var el = document.createElement("img");
+      el.className = "pop";
+      el.src = "emojis/" + emojiFile(EMOJIS[Math.floor(Math.random() * EMOJIS.length)]);
+      el.alt = "";
+      el.draggable = false;
+      var angle = Math.random() * Math.PI * 2;
+      var dist = maxDist * (0.3 + Math.random() * 0.7);
+      el.style.setProperty("--dx", Math.cos(angle) * dist + "px");
+      el.style.setProperty("--dy", Math.sin(angle) * dist + "px");
+      el.style.setProperty("--rot", (Math.random() * 360 - 180) + "deg");
+      el.style.setProperty("--size", (180 + Math.random() * 210) + "px");
+      el.style.setProperty("--delay", (Math.random() * 0.15) + "s");
+      document.body.appendChild(el);
+      (function (node) {
+        setTimeout(function () { node.remove(); }, 1900);
+      })(el);
+    }
+  }
+
+  function changeBackground() {
+    document.body.style.background = COLORS[Math.floor(Math.random() * COLORS.length)];
+  }
+
+  function showChar(key) {
+    if (!/^[a-zA-Z0-9]$/.test(key)) return;
+    var el = document.getElementById("bigChar");
+    el.textContent = key.toUpperCase();
+    el.classList.remove("show");
+    void el.offsetWidth; // 重启动画
+    el.classList.add("show");
+  }
+
+  // 挑选质量最高的英语语音（优先 macOS 自带的 Samantha 等高品质人声）
+  var preferredVoice = null;
+  function pickVoice() {
+    if (!window.speechSynthesis) return;
+    var voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return;
+    var prefs = [
+      /Zoe/i,                         // macOS 美式女声（可下载 Premium 版，最自然）
+      /Ava/i,                         // macOS 美式女声（可下载 Enhanced 版）
+      /Evan/i,                        // macOS 美式男声（Enhanced）
+      /Nathan/i,                      // macOS 美式男声（Enhanced）
+      /Samantha/i,                    // macOS 默认美式英语（标准清晰）
+      /Google US English/i,           // Chrome 网络语音
+      /Microsoft .*English \(United States\)/i,
+      /Alex/i,                        // macOS 高品质备选
+    ];
+    for (var i = 0; i < prefs.length; i++) {
+      var v = voices.find(function (voice) { return prefs[i].test(voice.name); });
+      if (v) { preferredVoice = v; return; }
+    }
+    preferredVoice = voices.find(function (v) { return /^en([_-]US)?/i.test(v.lang); }) || null;
+  }
+  if (window.speechSynthesis) {
+    pickVoice();
+    window.speechSynthesis.onvoiceschanged = pickVoice; // 语音列表异步加载
+  }
+
+  // 用语音念出英文字母（浏览器自带 TTS，离线可用）
+  function speakLetter(letter) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel(); // 连按时不排队，只念最新的
+    var u = new SpeechSynthesisUtterance(letter.toLowerCase());
+    u.lang = "en-US";
+    if (preferredVoice) u.voice = preferredVoice;
+    u.rate = 1.0;  // 正常语速
+    u.pitch = 1.0; // 自然音调，最标准的发音
+    window.speechSynthesis.speak(u);
+  }
+
+  function goFullscreen() {
+    var el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen().catch(function () {});
+  }
+
+  document.addEventListener("keydown", function (e) {
+    // 放行 Esc（家长退出全屏用），其余一律接管，避免刷新/滚动等默认行为
+    if (e.key !== "Escape") e.preventDefault();
+    if (e.repeat) return;
+
+    var now = Date.now();
+    if (now - lastTime < 50) return; // 去抖
+    lastTime = now;
+
+    ensureAudio();
+
+    if (!started) {
+      started = true;
+      goFullscreen();
+      var w = document.getElementById("welcome");
+      if (w) w.remove();
+    }
+
+    if (/^[a-zA-Z]$/.test(e.key)) {
+      speakLetter(e.key.toUpperCase()); // 26 个字母：直接念出来
+    } else {
+      playNote(); // 其他按键：随机音符
+    }
+    spawnEmoji();
+    changeBackground();
+    showChar(e.key);
+  });
+})();
+</script>
+</body>
+</html>
