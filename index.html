@@ -42,18 +42,20 @@
     left: 50vw; top: 50vh;
     width: var(--size, 100px);
     opacity: 0;
-    animation: burst 1.5s cubic-bezier(0.15, 0.6, 0.3, 1) both;
+    animation: burst 2s cubic-bezier(0.15, 0.6, 0.3, 1) both;
     animation-delay: var(--delay, 0s);
     pointer-events: none;
     z-index: 5;
   }
   @keyframes burst {
     0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
-    8%   { opacity: 1; }
-    60%  { transform: translate(calc(-50% + var(--dx) * 0.8), calc(-50% + var(--dy) * 0.8))
+    6%   { opacity: 1; }
+    30%  { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
                     scale(1) rotate(calc(var(--rot) * 0.6)); opacity: 1; }
+    75%  { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
+                    scale(1) rotate(var(--rot)); opacity: 1; }
     100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
-                    scale(0.5) rotate(var(--rot)); opacity: 0; }
+                    scale(0.6) rotate(var(--rot)); opacity: 0; }
   }
   /* 中央大字母 */
   #bigChar {
@@ -231,7 +233,7 @@
       el.style.setProperty("--delay", (Math.random() * 0.15) + "s");
       document.body.appendChild(el);
       (function (node) {
-        setTimeout(function () { node.remove(); }, 1900);
+        setTimeout(function () { node.remove(); }, 2400);
       })(el);
     }
   }
@@ -290,13 +292,39 @@
 
   function goFullscreen() {
     var el = document.documentElement;
-    if (el.requestFullscreen) el.requestFullscreen().catch(function () {});
+    if (!el.requestFullscreen) return;
+    el.requestFullscreen().then(function () {
+      // Keyboard Lock：全屏时把 Esc 等按键也交给页面（Chrome/Edge 支持）
+      if (navigator.keyboard && navigator.keyboard.lock) {
+        navigator.keyboard.lock().catch(function () {});
+      }
+    }).catch(function () {});
   }
 
+  // 禁用右键菜单，防止误触弹出浏览器菜单
+  document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // 游戏开始后拦截误关标签页/窗口（会弹出确认框，小孩无法确认即等于拦下）
+  window.addEventListener("beforeunload", function (e) {
+    if (started) { e.preventDefault(); e.returnValue = ""; }
+  });
+
   document.addEventListener("keydown", function (e) {
-    // 放行 Esc（家长退出全屏用），其余一律接管，避免刷新/滚动等默认行为
-    if (e.key !== "Escape") e.preventDefault();
+    // 所有按键一律捕获并禁用默认行为（防止触发浏览器/系统界面）
+    e.preventDefault();
     if (e.repeat) return;
+
+    // Esc：仅作家长退出全屏用，不产生游戏反馈
+    if (e.key === "Escape") {
+      if (document.fullscreenElement) document.exitFullscreen();
+      return;
+    }
+
+    // 只响应 26 个字母、方向键、空格；其余按键捕获后丢弃，无任何反馈
+    var isLetter = /^[a-zA-Z]$/.test(e.key);
+    var isArrow = /^Arrow(Up|Down|Left|Right)$/.test(e.key);
+    var isSpace = e.key === " ";
+    if (!isLetter && !isArrow && !isSpace) return;
 
     var now = Date.now();
     if (now - lastTime < 50) return; // 去抖
@@ -311,10 +339,10 @@
       if (w) w.remove();
     }
 
-    if (/^[a-zA-Z]$/.test(e.key)) {
+    if (isLetter) {
       speakLetter(e.key.toUpperCase()); // 26 个字母：直接念出来
     } else {
-      playNote(); // 其他按键：随机音符
+      playNote(); // 方向键、空格：随机音符
     }
     spawnEmoji();
     changeBackground();
