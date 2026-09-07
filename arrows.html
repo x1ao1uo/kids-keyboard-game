@@ -115,9 +115,6 @@
     "1f36a", // 🍭
   ];
 
-  // C 大调音阶：移动用随机叮，切换用上行三音小旋律
-  var NOTES = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659];
-
   // 中文 TTS：切换动物时念出名字（macOS 优先 Tingting / Mei-jia / Sin-ji）
   var preferredVoiceZh = null;
   function pickZhVoice() {
@@ -248,7 +245,6 @@
     setTimeout(function () { pet.classList.remove("bounce"); }, 110);
     spawnSparks();
     leavePaw();
-    playStep();
   }
 
   function cyclePet() {
@@ -256,7 +252,6 @@
     var p = PETS[petIdx];
     pet.src = file(p.id);
     spawnSparks();
-    playSwitch();
     speakZh(p.name);
   }
 
@@ -269,7 +264,6 @@
   document.addEventListener("keydown", function (e) {
     e.preventDefault();
     if (e.repeat) return;
-    ensureAudio(); // 第一次按键时激活音频
     switch (e.key) {
       case "ArrowUp":    move(0, -STEP); break;
       case "ArrowDown":  move(0,  STEP); break;
