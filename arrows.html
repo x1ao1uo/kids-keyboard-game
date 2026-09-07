@@ -115,46 +115,24 @@
     "1f36a", // 🍭
   ];
 
-  // 中文 TTS：切换动物时念出名字（macOS 优先 Tingting / Mei-jia / Sin-ji）
-  var preferredVoiceZh = null;
-  function pickZhVoice() {
-    if (!window.speechSynthesis) return;
-    var voices = window.speechSynthesis.getVoices();
-    if (!voices.length) return;
-    var prefs = [
-      /Tingting/i,
-      /Mei-?jia/i,
-      /Sin-?ji/i,
-      /Microsoft .*Chinese/i,
-      /Microsoft .*Yaoyao/i,
-      /Google 普通话/i,
-    ];
-    for (var i = 0; i < prefs.length; i++) {
-      var v = voices.find(function (voice) { return prefs[i].test(voice.name); });
-      if (v) { preferredVoiceZh = v; return; }
-    }
-    preferredVoiceZh = voices.find(function (v) { return /^zh/i.test(v.lang); }) || null;
-  }
-  if (window.speechSynthesis) {
-    pickZhVoice();
-    window.speechSynthesis.onvoiceschanged = pickZhVoice;
-  }
-  function speakZh(text) {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    var u = new SpeechSynthesisUtterance(text);
-    u.lang = "zh-CN";
-    u.rate = 0.85;   // 稍慢，便于小孩听清
-    u.pitch = 1.15;  // 略高，更亲切
-    if (preferredVoiceZh) u.voice = preferredVoiceZh;
-    window.speechSynthesis.speak(u);
+  // —— 中文 TTS：每个动物名用 edge-tts + 微软云希预生成（tts/<id>.mp3）
+  // 音色标准、离线可播、不依赖浏览器/系统 TTS 引擎
+  var ttsAudio = new Audio();
+  ttsAudio.preload = "auto";
+
+  function speakName(idx) {
+    var p = PETS[idx];
+    ttsAudio.pause();
+    ttsAudio.currentTime = 0;
+    ttsAudio.src = "tts/" + p.id + ".mp3";
+    var p2 = ttsAudio.play();
+    if (p2 && p2.catch) p2.catch(function () {}); // 用户首次交互前可能拒绝，吞掉
   }
 
   var pet = document.getElementById("pet");
   var SIZE = 1066;       // 体积 ×2/3（在原 1600 基础上）
   var STEP = 146;        // 一按一下，明显移动
   var petIdx = 0;
-  var audioCtx = null;
 
   // 起始居中（允许部分溢出屏幕，给"巨大萌物"的感觉）
   var x = window.innerWidth / 2 - SIZE / 2;
@@ -167,52 +145,6 @@
   place();
 
   function file(name) { return "emojis/" + name + ".svg"; }
-
-  // —— 轻音乐（Web Audio 合成，不依赖外部资源） ——
-  function ensureAudio() {
-    if (!audioCtx) {
-      var AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) audioCtx = new AC();
-    }
-    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
-  }
-
-  function tone(type, freqStart, freqEnd, startTime, duration, volume) {
-    var osc = audioCtx.createOscillator();
-    var gain = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freqStart, startTime);
-    if (freqEnd !== freqStart) {
-      osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
-    }
-    gain.gain.setValueAtTime(volume, startTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start(startTime);
-    osc.stop(startTime + duration);
-  }
-
-  // 移动：柔和短"叮"（正弦 + 高八度泛音，像风铃）
-  function playStep() {
-    if (!audioCtx) return;
-    var t = audioCtx.currentTime;
-    var f = NOTES[Math.floor(Math.random() * NOTES.length)];
-    tone("sine", f, f, t, 0.22, 0.20);
-    tone("sine", f * 2, f * 2, t, 0.18, 0.07);
-  }
-
-  // 切动物：上行三音小旋律（柔和三角波 + 风铃点缀）
-  function playSwitch() {
-    if (!audioCtx) return;
-    var t0 = audioCtx.currentTime;
-    var seq = [NOTES[0], NOTES[2], NOTES[4]]; // C E G
-    for (var i = 0; i < seq.length; i++) {
-      var f = seq[i];
-      tone("triangle", f, f, t0 + i * 0.18, 0.28, 0.22);
-      tone("sine",     f * 2, f * 2, t0 + i * 0.18, 0.22, 0.07);
-    }
-  }
 
   function spawnSparks() {
     for (var i = 0; i < 4; i++) {
@@ -252,7 +184,7 @@
     var p = PETS[petIdx];
     pet.src = file(p.id);
     spawnSparks();
-    speakZh(p.name);
+    speakName(petIdx);
   }
 
   // 拦截右键、误关标签页；小孩一通乱按也不影响
