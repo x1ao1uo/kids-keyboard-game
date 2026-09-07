@@ -61,16 +61,49 @@
 (function () {
   "use strict";
 
-  // 适合 0~3 岁的大眼萌物；全部 Twemoji 已在仓库 emojis/ 里
+  // 0~3 岁友好的萌物集合（共 40 个，超高清 Twemoji 矢量 SVG 已在仓库 emojis/ 里）
+  // 排除蛇/鳄鱼/蜘蛛/鲨鱼/蜥蜴/蝙蝠/恐龙/龙 等可能吓到小孩的
   var PETS = [
-    "1f425", // 🐥
-    "1f436", // 🐶
-    "1f431", // 🐱
-    "1f430", // 🐰
-    "1f98a", // 🦊
-    "1f43b", // 🐻
-    "1f438", // 🐸
-    "1f984", // 🦄
+    { id: "1f436", name: "小狗"   },
+    { id: "1f431", name: "小猫"   },
+    { id: "1f430", name: "小兔子" },
+    { id: "1f439", name: "小仓鼠" },
+    { id: "1f42d", name: "小老鼠" },
+    { id: "1f43b", name: "小熊"   },
+    { id: "1f43c", name: "大熊猫" },
+    { id: "1f428", name: "小考拉" },
+    { id: "1f42f", name: "小老虎" },
+    { id: "1f981", name: "小狮子" },
+    { id: "1f42e", name: "小牛"   },
+    { id: "1f437", name: "小猪"   },
+    { id: "1f435", name: "小猴子" },
+    { id: "1f98a", name: "小狐狸" },
+    { id: "1f992", name: "长颈鹿" },
+    { id: "1f418", name: "大象"   },
+    { id: "1f993", name: "斑马"   },
+    { id: "1f998", name: "袋鼠"   },
+    { id: "1f414", name: "小鸡"   },
+    { id: "1f424", name: "小鸡"   },
+    { id: "1f425", name: "小鸡"   },
+    { id: "1f426", name: "小鸟"   },
+    { id: "1f427", name: "企鹅"   },
+    { id: "1f986", name: "小鸭子" },
+    { id: "1f99a", name: "天鹅"   },
+    { id: "1f99b", name: "孔雀"   },
+    { id: "1f99c", name: "小鹦鹉" },
+    { id: "1f989", name: "猫头鹰" },
+    { id: "1f985", name: "老鹰"   },
+    { id: "1f413", name: "大公鸡" },
+    { id: "1f42c", name: "小海豚" },
+    { id: "1f433", name: "大鲸鱼" },
+    { id: "1f420", name: "小鱼"   },
+    { id: "1f419", name: "章鱼"   },
+    { id: "1f422", name: "小乌龟" },
+    { id: "1f41d", name: "小蜜蜂" },
+    { id: "1f98b", name: "小蝴蝶" },
+    { id: "1f984", name: "独角兽" },
+    { id: "1f434", name: "小马"   },
+    { id: "1f411", name: "小绵羊" },
   ];
   var SPARKS = [
     "2b50",  // ⭐
@@ -84,6 +117,41 @@
 
   // C 大调音阶：移动用随机叮，切换用上行三音小旋律
   var NOTES = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659];
+
+  // 中文 TTS：切换动物时念出名字（macOS 优先 Tingting / Mei-jia / Sin-ji）
+  var preferredVoiceZh = null;
+  function pickZhVoice() {
+    if (!window.speechSynthesis) return;
+    var voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return;
+    var prefs = [
+      /Tingting/i,
+      /Mei-?jia/i,
+      /Sin-?ji/i,
+      /Microsoft .*Chinese/i,
+      /Microsoft .*Yaoyao/i,
+      /Google 普通话/i,
+    ];
+    for (var i = 0; i < prefs.length; i++) {
+      var v = voices.find(function (voice) { return prefs[i].test(voice.name); });
+      if (v) { preferredVoiceZh = v; return; }
+    }
+    preferredVoiceZh = voices.find(function (v) { return /^zh/i.test(v.lang); }) || null;
+  }
+  if (window.speechSynthesis) {
+    pickZhVoice();
+    window.speechSynthesis.onvoiceschanged = pickZhVoice;
+  }
+  function speakZh(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = "zh-CN";
+    u.rate = 0.85;   // 稍慢，便于小孩听清
+    u.pitch = 1.15;  // 略高，更亲切
+    if (preferredVoiceZh) u.voice = preferredVoiceZh;
+    window.speechSynthesis.speak(u);
+  }
 
   var pet = document.getElementById("pet");
   var SIZE = 1066;       // 体积 ×2/3（在原 1600 基础上）
@@ -185,9 +253,11 @@
 
   function cyclePet() {
     petIdx = (petIdx + 1) % PETS.length;
-    pet.src = file(PETS[petIdx]);
+    var p = PETS[petIdx];
+    pet.src = file(p.id);
     spawnSparks();
     playSwitch();
+    speakZh(p.name);
   }
 
   // 拦截右键、误关标签页；小孩一通乱按也不影响
