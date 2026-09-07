@@ -15,15 +15,15 @@
     transition: background 0.6s ease;
   }
   #hint {
-    position: fixed; top: 36px; left: 50%; transform: translateX(-50%);
+    position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
     background: rgba(255,255,255,0.75); color: #555;
-    padding: 24px 56px; border-radius: 56px;
-    font-size: 56px; font-weight: 700; pointer-events: none;
+    padding: 16px 37px; border-radius: 37px;
+    font-size: 37px; font-weight: 700; pointer-events: none;
     z-index: 10;
   }
   #pet {
     position: absolute;
-    width: 1600px; height: 1600px;
+    width: 1066px; height: 1066px;
     transition: transform 0.12s ease-out;
     pointer-events: none;
     will-change: transform;
@@ -32,7 +32,7 @@
   #pet.bounce { transform: scale(1.08) rotate(-6deg); }
   .spark {
     position: absolute;
-    width: 640px; height: 640px;
+    width: 426px; height: 426px;
     pointer-events: none;
     animation: pop 1s forwards;
   }
@@ -42,7 +42,7 @@
   }
   .paw {
     position: absolute;
-    width: 480px; height: 480px;
+    width: 320px; height: 320px;
     pointer-events: none;
     animation: paw 1.4s forwards;
     opacity: 0.65;
@@ -86,8 +86,8 @@
   var NOTES = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659];
 
   var pet = document.getElementById("pet");
-  var SIZE = 1600;       // 整体放大 10 倍
-  var STEP = 220;        // 一按一下，明显移动
+  var SIZE = 1066;       // 体积 ×2/3（在原 1600 基础上）
+  var STEP = 146;        // 一按一下，明显移动
   var petIdx = 0;
   var audioCtx = null;
 
@@ -154,8 +154,8 @@
       var s = document.createElement("img");
       s.className = "spark";
       s.src = file(SPARKS[Math.floor(Math.random() * SPARKS.length)]);
-      s.style.left = (x + SIZE / 2 + (Math.random() - 0.5) * 800) + "px";
-      s.style.top  = (y + SIZE / 2 + (Math.random() - 0.5) * 800) + "px";
+      s.style.left = (x + SIZE / 2 + (Math.random() - 0.5) * 533) + "px";
+      s.style.top  = (y + SIZE / 2 + (Math.random() - 0.5) * 533) + "px";
       document.body.appendChild(s);
       (function (n) { setTimeout(function () { n.remove(); }, 1000); })(s);
     }
