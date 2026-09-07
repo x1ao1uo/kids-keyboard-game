@@ -15,25 +15,26 @@
     transition: background 0.6s ease;
   }
   #hint {
-    position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+    position: fixed; top: 36px; left: 50%; transform: translateX(-50%);
     background: rgba(255,255,255,0.75); color: #555;
-    padding: 10px 22px; border-radius: 28px;
-    font-size: 22px; font-weight: 700; pointer-events: none;
+    padding: 24px 56px; border-radius: 56px;
+    font-size: 56px; font-weight: 700; pointer-events: none;
     z-index: 10;
   }
   #pet {
     position: absolute;
-    width: 160px; height: 160px;
-    transition: transform 0.1s ease-out;
+    width: 1600px; height: 1600px;
+    transition: transform 0.12s ease-out;
     pointer-events: none;
     will-change: transform;
+    transform-origin: 50% 50%;
   }
-  #pet.bounce { transform: scale(1.18) rotate(-6deg); }
+  #pet.bounce { transform: scale(1.08) rotate(-6deg); }
   .spark {
     position: absolute;
-    width: 64px; height: 64px;
+    width: 640px; height: 640px;
     pointer-events: none;
-    animation: pop 0.9s forwards;
+    animation: pop 1s forwards;
   }
   @keyframes pop {
     0%   { transform: translate(-50%, -50%) scale(0.2) rotate(0);   opacity: 1; }
@@ -41,14 +42,14 @@
   }
   .paw {
     position: absolute;
-    width: 48px; height: 48px;
+    width: 480px; height: 480px;
     pointer-events: none;
-    animation: paw 1.2s forwards;
-    opacity: 0.7;
+    animation: paw 1.4s forwards;
+    opacity: 0.65;
   }
   @keyframes paw {
-    0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0.7; }
-    100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+    0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 0.65; }
+    100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
   }
 </style>
 </head>
@@ -81,11 +82,16 @@
     "1f36a", // 🍭
   ];
 
-  var pet = document.getElementById("pet");
-  var STEP = 56;
-  var SIZE = 160;
-  var petIdx = 0;
+  // C 大调音阶：移动用随机叮，切换用上行三音小旋律
+  var NOTES = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659];
 
+  var pet = document.getElementById("pet");
+  var SIZE = 1600;       // 整体放大 10 倍
+  var STEP = 220;        // 一按一下，明显移动
+  var petIdx = 0;
+  var audioCtx = null;
+
+  // 起始居中（允许部分溢出屏幕，给"巨大萌物"的感觉）
   var x = window.innerWidth / 2 - SIZE / 2;
   var y = window.innerHeight / 2 - SIZE / 2;
 
@@ -97,15 +103,61 @@
 
   function file(name) { return "emojis/" + name + ".svg"; }
 
+  // —— 轻音乐（Web Audio 合成，不依赖外部资源） ——
+  function ensureAudio() {
+    if (!audioCtx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  }
+
+  function tone(type, freqStart, freqEnd, startTime, duration, volume) {
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freqStart, startTime);
+    if (freqEnd !== freqStart) {
+      osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
+    }
+    gain.gain.setValueAtTime(volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  }
+
+  // 移动：柔和短"叮"（正弦 + 高八度泛音，像风铃）
+  function playStep() {
+    if (!audioCtx) return;
+    var t = audioCtx.currentTime;
+    var f = NOTES[Math.floor(Math.random() * NOTES.length)];
+    tone("sine", f, f, t, 0.22, 0.20);
+    tone("sine", f * 2, f * 2, t, 0.18, 0.07);
+  }
+
+  // 切动物：上行三音小旋律（柔和三角波 + 风铃点缀）
+  function playSwitch() {
+    if (!audioCtx) return;
+    var t0 = audioCtx.currentTime;
+    var seq = [NOTES[0], NOTES[2], NOTES[4]]; // C E G
+    for (var i = 0; i < seq.length; i++) {
+      var f = seq[i];
+      tone("triangle", f, f, t0 + i * 0.18, 0.28, 0.22);
+      tone("sine",     f * 2, f * 2, t0 + i * 0.18, 0.22, 0.07);
+    }
+  }
+
   function spawnSparks() {
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 4; i++) {
       var s = document.createElement("img");
       s.className = "spark";
       s.src = file(SPARKS[Math.floor(Math.random() * SPARKS.length)]);
-      s.style.left = (x + SIZE / 2 + (Math.random() - 0.5) * 80) + "px";
-      s.style.top  = (y + SIZE / 2 + (Math.random() - 0.5) * 80) + "px";
+      s.style.left = (x + SIZE / 2 + (Math.random() - 0.5) * 800) + "px";
+      s.style.top  = (y + SIZE / 2 + (Math.random() - 0.5) * 800) + "px";
       document.body.appendChild(s);
-      (function (n) { setTimeout(function () { n.remove(); }, 900); })(s);
+      (function (n) { setTimeout(function () { n.remove(); }, 1000); })(s);
     }
   }
 
@@ -116,23 +168,26 @@
     p.style.left = (x + SIZE / 2) + "px";
     p.style.top  = (y + SIZE / 2) + "px";
     document.body.appendChild(p);
-    setTimeout(function () { p.remove(); }, 1200);
+    setTimeout(function () { p.remove(); }, 1400);
   }
 
   function move(dx, dy) {
-    x = Math.max(0, Math.min(window.innerWidth  - SIZE, x + dx));
-    y = Math.max(0, Math.min(window.innerHeight - SIZE, y + dy));
+    // 允许溢出到屏幕外一整身，小动物可以"爬出再爬回"，巨大感更足
+    x = Math.max(-SIZE / 2, Math.min(window.innerWidth  - SIZE / 2, x + dx));
+    y = Math.max(-SIZE / 2, Math.min(window.innerHeight - SIZE / 2, y + dy));
     place();
     pet.classList.add("bounce");
-    setTimeout(function () { pet.classList.remove("bounce"); }, 90);
+    setTimeout(function () { pet.classList.remove("bounce"); }, 110);
     spawnSparks();
     leavePaw();
+    playStep();
   }
 
   function cyclePet() {
     petIdx = (petIdx + 1) % PETS.length;
     pet.src = file(PETS[petIdx]);
     spawnSparks();
+    playSwitch();
   }
 
   // 拦截右键、误关标签页；小孩一通乱按也不影响
@@ -144,6 +199,7 @@
   document.addEventListener("keydown", function (e) {
     e.preventDefault();
     if (e.repeat) return;
+    ensureAudio(); // 第一次按键时激活音频
     switch (e.key) {
       case "ArrowUp":    move(0, -STEP); break;
       case "ArrowDown":  move(0,  STEP); break;
