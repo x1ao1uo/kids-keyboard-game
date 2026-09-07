@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小动物跑跑跑 · 方向键乐园</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: "PingFang SC", system-ui, sans-serif;
+    user-select: none;
+    background: linear-gradient(180deg, #FFE9F2 0%, #FFF6E0 50%, #E8F4FF 100%);
+    transition: background 0.6s ease;
+  }
+  #hint {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,255,255,0.75); color: #555;
+    padding: 10px 22px; border-radius: 28px;
+    font-size: 22px; font-weight: 700; pointer-events: none;
+    z-index: 10;
+  }
+  #pet {
+    position: absolute;
+    width: 160px; height: 160px;
+    transition: transform 0.1s ease-out;
+    pointer-events: none;
+    will-change: transform;
+  }
+  #pet.bounce { transform: scale(1.18) rotate(-6deg); }
+  .spark {
+    position: absolute;
+    width: 64px; height: 64px;
+    pointer-events: none;
+    animation: pop 0.9s forwards;
+  }
+  @keyframes pop {
+    0%   { transform: translate(-50%, -50%) scale(0.2) rotate(0);   opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(2.4) rotate(180deg); opacity: 0; }
+  }
+  .paw {
+    position: absolute;
+    width: 48px; height: 48px;
+    pointer-events: none;
+    animation: paw 1.2s forwards;
+    opacity: 0.7;
+  }
+  @keyframes paw {
+    0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0.7; }
+    100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="hint">按 ↑ ↓ ← → 让小动物跑起来</div>
+<img id="pet" src="emojis/1f425.svg" alt="">
+
+<script>
+(function () {
+  "use strict";
+
+  // 适合 0~3 岁的大眼萌物；全部 Twemoji 已在仓库 emojis/ 里
+  var PETS = [
+    "1f425", // 🐥
+    "1f436", // 🐶
+    "1f431", // 🐱
+    "1f430", // 🐰
+    "1f98a", // 🦊
+    "1f43b", // 🐻
+    "1f438", // 🐸
+    "1f984", // 🦄
+  ];
+  var SPARKS = [
+    "2b50",  // ⭐
+    "1f31f", // 🌟
+    "2728",  // ✨
+    "1f496", // 💖
+    "1f308", // 🌈
+    "1f388", // 🎈
+    "1f36a", // 🍭
+  ];
+
+  var pet = document.getElementById("pet");
+  var STEP = 56;
+  var SIZE = 160;
+  var petIdx = 0;
+
+  var x = window.innerWidth / 2 - SIZE / 2;
+  var y = window.innerHeight / 2 - SIZE / 2;
+
+  function place() {
+    pet.style.left = x + "px";
+    pet.style.top  = y + "px";
+  }
+  place();
+
+  function file(name) { return "emojis/" + name + ".svg"; }
+
+  function spawnSparks() {
+    for (var i = 0; i < 3; i++) {
+      var s = document.createElement("img");
+      s.className = "spark";
+      s.src = file(SPARKS[Math.floor(Math.random() * SPARKS.length)]);
+      s.style.left = (x + SIZE / 2 + (Math.random() - 0.5) * 80) + "px";
+      s.style.top  = (y + SIZE / 2 + (Math.random() - 0.5) * 80) + "px";
+      document.body.appendChild(s);
+      (function (n) { setTimeout(function () { n.remove(); }, 900); })(s);
+    }
+  }
+
+  function leavePaw() {
+    var p = document.createElement("img");
+    p.className = "paw";
+    p.src = file("1f43e"); // 🐾
+    p.style.left = (x + SIZE / 2) + "px";
+    p.style.top  = (y + SIZE / 2) + "px";
+    document.body.appendChild(p);
+    setTimeout(function () { p.remove(); }, 1200);
+  }
+
+  function move(dx, dy) {
+    x = Math.max(0, Math.min(window.innerWidth  - SIZE, x + dx));
+    y = Math.max(0, Math.min(window.innerHeight - SIZE, y + dy));
+    place();
+    pet.classList.add("bounce");
+    setTimeout(function () { pet.classList.remove("bounce"); }, 90);
+    spawnSparks();
+    leavePaw();
+  }
+
+  function cyclePet() {
+    petIdx = (petIdx + 1) % PETS.length;
+    pet.src = file(PETS[petIdx]);
+    spawnSparks();
+  }
+
+  // 拦截右键、误关标签页；小孩一通乱按也不影响
+  document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  window.addEventListener("beforeunload", function (e) {
+    e.preventDefault(); e.returnValue = "";
+  });
+
+  document.addEventListener("keydown", function (e) {
+    e.preventDefault();
+    if (e.repeat) return;
+    switch (e.key) {
+      case "ArrowUp":    move(0, -STEP); break;
+      case "ArrowDown":  move(0,  STEP); break;
+      case "ArrowLeft":  move(-STEP, 0); break;
+      case "ArrowRight": move( STEP, 0); break;
+      case " ":          cyclePet();     break; // 空格换动物（彩蛋）
+    }
+  });
+})();
+</script>
+</body>
+</html>
