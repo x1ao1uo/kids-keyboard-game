@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>小动物跑跑跑 · 方向键乐园</title>
+<title>小动物乐园</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -22,16 +22,19 @@
     z-index: 10;
   }
   #pet {
-    position: absolute;
+    position: fixed;
+    left: 50%; top: 50%;
     width: 1066px; height: 1066px;
+    transform: translate(-50%, -50%);
     transition: transform 0.12s ease-out;
     pointer-events: none;
     will-change: transform;
-    transform-origin: 50% 50%;
   }
-  #pet.bounce { transform: scale(1.08) rotate(-6deg); }
+  #pet.bounce {
+    transform: translate(-50%, -50%) scale(1.12) rotate(-6deg);
+  }
   .spark {
-    position: absolute;
+    position: fixed;
     width: 426px; height: 426px;
     pointer-events: none;
     animation: pop 1s forwards;
@@ -40,29 +43,17 @@
     0%   { transform: translate(-50%, -50%) scale(0.2) rotate(0);   opacity: 1; }
     100% { transform: translate(-50%, -50%) scale(2.4) rotate(180deg); opacity: 0; }
   }
-  .paw {
-    position: absolute;
-    width: 320px; height: 320px;
-    pointer-events: none;
-    animation: paw 1.4s forwards;
-    opacity: 0.65;
-  }
-  @keyframes paw {
-    0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 0.65; }
-    100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
-  }
 </style>
 </head>
 <body>
-<div id="hint">按 ↑ ↓ ← → 让小动物跑起来</div>
+<div id="hint">按 空格 / 回车 切换小动物</div>
 <img id="pet" src="emojis/1f425.svg" alt="">
 
 <script>
 (function () {
   "use strict";
 
-  // 0~3 岁友好的萌物集合（共 40 个，超高清 Twemoji 矢量 SVG 已在仓库 emojis/ 里）
-  // 排除蛇/鳄鱼/蜘蛛/鲨鱼/蜥蜴/蝙蝠/恐龙/龙 等可能吓到小孩的
+  // 0~3 岁友好的萌物集合（40 个，超高清 Twemoji 矢量 SVG）
   var PETS = [
     { id: "1f436", name: "小狗"   },
     { id: "1f431", name: "小猫"   },
@@ -115,93 +106,51 @@
     "1f36a", // 🍭
   ];
 
-  // —— 中文 TTS：每个动物名用 edge-tts + 微软云希预生成（tts/<id>.mp3）
-  // 音色标准、离线可播、不依赖浏览器/系统 TTS 引擎
+  var pet = document.getElementById("pet");
+  var petIdx = 0;
+
+  // 中文 TTS：每个动物名预生成的 mp3（微软云希 XiaoxiaoNeural）
   var ttsAudio = new Audio();
   ttsAudio.preload = "auto";
-
   function speakName(idx) {
     var p = PETS[idx];
     ttsAudio.pause();
     ttsAudio.currentTime = 0;
     ttsAudio.src = "tts/" + p.id + ".mp3";
     var p2 = ttsAudio.play();
-    if (p2 && p2.catch) p2.catch(function () {}); // 用户首次交互前可能拒绝，吞掉
+    if (p2 && p2.catch) p2.catch(function () {});
   }
-
-  var pet = document.getElementById("pet");
-  var SIZE = 1066;       // 体积 ×2/3（在原 1600 基础上）
-  var STEP = 146;        // 一按一下，明显移动
-  var petIdx = 0;
-
-  // 起始居中（允许部分溢出屏幕，给"巨大萌物"的感觉）
-  var x = window.innerWidth / 2 - SIZE / 2;
-  var y = window.innerHeight / 2 - SIZE / 2;
-
-  function place() {
-    pet.style.left = x + "px";
-    pet.style.top  = y + "px";
-  }
-  place();
-
-  function file(name) { return "emojis/" + name + ".svg"; }
 
   function spawnSparks() {
+    var cx = window.innerWidth / 2;
+    var cy = window.innerHeight / 2;
     for (var i = 0; i < 4; i++) {
       var s = document.createElement("img");
       s.className = "spark";
-      s.src = file(SPARKS[Math.floor(Math.random() * SPARKS.length)]);
-      s.style.left = (x + SIZE / 2 + (Math.random() - 0.5) * 533) + "px";
-      s.style.top  = (y + SIZE / 2 + (Math.random() - 0.5) * 533) + "px";
+      s.src = "emojis/" + SPARKS[Math.floor(Math.random() * SPARKS.length)] + ".svg";
+      s.style.left = (cx + (Math.random() - 0.5) * 533) + "px";
+      s.style.top  = (cy + (Math.random() - 0.5) * 533) + "px";
       document.body.appendChild(s);
       (function (n) { setTimeout(function () { n.remove(); }, 1000); })(s);
     }
   }
 
-  function leavePaw() {
-    var p = document.createElement("img");
-    p.className = "paw";
-    p.src = file("1f43e"); // 🐾
-    p.style.left = (x + SIZE / 2) + "px";
-    p.style.top  = (y + SIZE / 2) + "px";
-    document.body.appendChild(p);
-    setTimeout(function () { p.remove(); }, 1400);
-  }
-
-  function move(dx, dy) {
-    // 允许溢出到屏幕外一整身，小动物可以"爬出再爬回"，巨大感更足
-    x = Math.max(-SIZE / 2, Math.min(window.innerWidth  - SIZE / 2, x + dx));
-    y = Math.max(-SIZE / 2, Math.min(window.innerHeight - SIZE / 2, y + dy));
-    place();
-    pet.classList.add("bounce");
-    setTimeout(function () { pet.classList.remove("bounce"); }, 110);
-    spawnSparks();
-    leavePaw();
-  }
-
   function cyclePet() {
     petIdx = (petIdx + 1) % PETS.length;
     var p = PETS[petIdx];
-    pet.src = file(p.id);
+    pet.src = "emojis/" + p.id + ".svg";
+    pet.classList.add("bounce");
+    setTimeout(function () { pet.classList.remove("bounce"); }, 110);
     spawnSparks();
     speakName(petIdx);
   }
 
-  // 拦截右键、误关标签页；小孩一通乱按也不影响
   document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
-  window.addEventListener("beforeunload", function (e) {
-    e.preventDefault(); e.returnValue = "";
-  });
-
   document.addEventListener("keydown", function (e) {
-    e.preventDefault();
     if (e.repeat) return;
-    switch (e.key) {
-      case "ArrowUp":    move(0, -STEP); break;
-      case "ArrowDown":  move(0,  STEP); break;
-      case "ArrowLeft":  move(-STEP, 0); break;
-      case "ArrowRight": move( STEP, 0); break;
-      case " ":          cyclePet();     break; // 空格换动物（彩蛋）
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      cyclePet();
     }
   });
 })();
