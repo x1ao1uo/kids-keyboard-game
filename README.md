@@ -18,16 +18,29 @@
 
 ### 2. `arrows.html` — 小动物乐园（0~3 岁）
 
-- 屏幕中央固定显示一只超大的小动物（默认小鸡 🐥）
-- 按 **空格** 或 **回车** 切换动物（共 40 只超高清 Twemoji 矢量图：小狗/小猫/小兔子/小熊/大熊猫/小考拉/小老虎/小狮子/小牛/小猪/小猴子/小狐狸/长颈鹿/大象/斑马/袋鼠/小鸡/小鸟/企鹅/小鸭子/天鹅/孔雀/小鹦鹉/猫头鹰/老鹰/大公鸡/小海豚/大鲸鱼/小鱼/章鱼/小乌龟/小蜜蜂/小蝴蝶/独角兽/小马/小绵羊…… 循环切换）；同时播放对应的中文音频念出动物名
-- 切换时：动物原地放大轻跳 + 从中心炸开一波彩色星星
-- 所有动物 emoji 都是仓库 `emojis/` 下原版 Twemoji 矢量 SVG，**超高清**且**离线**可用
+- 屏幕中央固定显示一只超大的可爱小图（默认 🚜 拖拉机）
+- 首次按 **空格** / **回车** / **→** 自动进入全屏；之后任意时刻按 **Esc** 退出全屏
+- 之后每按一次切换小图（共 **81** 张，进入顺序 4 段，可按 **↑/↓** 切段、**←/→** 切图）：
+  - **① 工程车/交通工具 20 个**（最先进入，默认起点）：Twemoji SVG
+  - **② 水果 16 种**：[Microsoft Fluent Emoji Color](https://github.com/microsoft/fluentui-emoji) SVG（MIT 许可，矢量，viewBox 0 0 32 32，任意尺寸不糊，比 3D PNG 更清晰）：香蕉/橘子（Fluent Emoji 没有 Orange，用 Tangerine 代替）/柠檬/葡萄/西瓜/菠萝/红苹果/大鸭梨/桃子/樱桃/草莓/哈密瓜/大芒果/椰子/蓝莓/牛油果
+  - **③ 小动物 40 只**：Twemoji SVG
+  - **④ 甜点小食 5 个**（最后）：Twemoji SVG：冰淇淋/甜甜圈/棒棒糖/巧克力/玉米
+  - 切换时同时播放对应的中文音频念出名字
+- 按键映射：**空格/回车/→** 下一张 ｜ **←** 上一张 ｜ **↑/↓** 上一类/下一类 ｜ **Esc** 退出全屏
+- 切换时：图像原地放大轻跳 + 从中心炸开一波彩色星星
+- 所有图像都是仓库 `emojis/` 下原版 Twemoji 矢量 SVG，**超高清**且**离线**可用
 - 中文音频为 `tts/` 目录下的 mp3（用 `edge-tts` + 微软云希 `zh-CN-XiaoxiaoNeural` 预生成），音色统一自然，浏览器原生 `<audio>` 播放，**离线**、不依赖系统 TTS 引擎
+- 注：Unicode 暂无“挖掘机”/“榴莲”/“山竹”/“荔枝”/“火龙果”/“百香果”emoji。挖掘机用 🚜 拖拉机代替；榴莲等热带水果以 🥑 牛油果 / 🥭 芒果 / 🥥 椰子 / 🥝 猕猴桃 等覆盖
 
 > 重新生成中文音频：
 > ```bash
 > python3 -m venv /tmp/tts-venv && /tmp/tts-venv/bin/pip install edge-tts
 > /tmp/tts-venv/bin/python scripts/gen_tts.py
+> ```
+>
+> 重新下载水果 3D 素材(从 microsoft/fluentui-emoji,需要联网):
+> ```bash
+> python3 scripts/download_fruits_3d.py
 > ```
 - 其余按键一律被拦截，右键菜单与误关标签页也被拦下
 
@@ -50,9 +63,9 @@ python3 -m http.server 8000
 # 浏览器访问 http://localhost:8000
 ```
 
-所有资源（含 `emojis/` 目录下 371 个 SVG）均为本地文件，离线可玩。
+所有资源（含 `emojis/` 目录下 371 个 SVG、`imgs/fruits/` 目录下 16 张 SVG）均为本地文件，离线可玩。
 
 ## 资源与许可
 
-`emojis/` 目录中的图形来自 [Twemoji](https://github.com/jdecked/twemoji)，
-版权归 X Corp（原 Twitter）所有，以 [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) 许可使用。
+- `emojis/` 目录中的图形来自 [Twemoji](https://github.com/jdecked/twemoji),版权归 X Corp（原 Twitter）所有,以 [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) 许可使用。
+- `imgs/fruits/` 目录的水果 3D 图像来自 [microsoft/fluentui-emoji](https://github.com/microsoft/fluentui-emoji),以 [MIT License](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) 许可使用。

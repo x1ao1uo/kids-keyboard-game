@@ -18,8 +18,11 @@
     position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
     background: rgba(255,255,255,0.75); color: #555;
     padding: 16px 37px; border-radius: 37px;
-    font-size: 37px; font-weight: 700; pointer-events: none;
+    font-size: 26px; font-weight: 700; pointer-events: none;
     z-index: 10;
+    line-height: 1.5;
+    text-align: center;
+    white-space: pre;
   }
   #pet {
     position: fixed;
@@ -46,15 +49,56 @@
 </style>
 </head>
 <body>
-<div id="hint">按 空格 / 回车 切换小动物</div>
-<img id="pet" src="emojis/1f425.svg" alt="">
+<div id="hint">空格/回车 进入全屏  ·  ← → 切图片  ·  ↑ ↓ 切种类  ·  Esc 退出</div>
+<img id="pet" src="emojis/1f69c.svg" alt="">
 
 <script>
 (function () {
   "use strict";
 
-  // 0~3 岁友好的萌物集合（40 个，超高清 Twemoji 矢量 SVG）
+  // 81 个小图(顺序:工程车 20 → 水果 16 → 动物 40 → 甜点 5);分 4 类,↑/↓ 切类,←/→ 切图。
+  // 注:Unicode 没有“挖掘机”/“榴莲”/“山竹”/“荔枝”/“火龙果”/“百香果”emoji;
+  //     挖掘机用 🚜 拖拉机 代替,榴莲等没有可入 emoji,以 🥑 牛油果 补足“热门水果”。
   var PETS = [
+    // ---- 20 个工程车/交通工具(最先进入) ----
+    { id: "1f69c", name: "拖拉机"   }, // 工地车最接近 emoji
+    { id: "1f69a", name: "大卡车"   },
+    { id: "1f69b", name: "大货车"   },
+    { id: "1f68c", name: "公交车"   },
+    { id: "1f690", name: "小巴"     },
+    { id: "1f691", name: "救护车"   },
+    { id: "1f692", name: "消防车"   },
+    { id: "1f693", name: "警车"     },
+    { id: "1f695", name: "出租车"   },
+    { id: "1f697", name: "小汽车"   },
+    { id: "1f699", name: "越野车"   },
+    { id: "1f682", name: "小火车"   },
+    { id: "1f684", name: "高铁"     },
+    { id: "1f681", name: "直升机"   },
+    { id: "2708",  name: "大飞机"   },
+    { id: "1f680", name: "小火箭"   },
+    { id: "1f6a2", name: "大轮船"   },
+    { id: "26f5",  name: "小帆船"   },
+    { id: "1f3ce", name: "赛车"     },
+    { id: "1f3cd", name: "摩托车"   },
+    // ---- 16 种水果(Microsoft Fluent Emoji Color SVG, MIT;矢量,任意尺寸不糊) ----
+    { id: "1f34c", name: "香蕉",   img: "imgs/fruits/banana.svg"      },
+    { id: "1f34a", name: "橘子",   img: "imgs/fruits/orange.svg"      }, // Fluent Emoji 没 Orange,只有 Tangerine
+    { id: "1f34b", name: "柠檬",   img: "imgs/fruits/lemon.svg"       },
+    { id: "1f347", name: "葡萄",   img: "imgs/fruits/grape.svg"       },
+    { id: "1f349", name: "西瓜",   img: "imgs/fruits/watermelon.svg"  },
+    { id: "1f34d", name: "菠萝",   img: "imgs/fruits/pineapple.svg"   },
+    { id: "1f34e", name: "红苹果", img: "imgs/fruits/apple.svg"       },
+    { id: "1f350", name: "大鸭梨", img: "imgs/fruits/pear.svg"        },
+    { id: "1f351", name: "桃子",   img: "imgs/fruits/peach.svg"       },
+    { id: "1f352", name: "樱桃",   img: "imgs/fruits/cherry.svg"      },
+    { id: "1f353", name: "草莓",   img: "imgs/fruits/strawberry.svg"  },
+    { id: "1f348", name: "哈密瓜", img: "imgs/fruits/cantaloupe.svg"  },
+    { id: "1f96d", name: "大芒果", img: "imgs/fruits/mango.svg"       },
+    { id: "1f965", name: "椰子",   img: "imgs/fruits/coconut.svg"     },
+    { id: "1fad0", name: "蓝莓",   img: "imgs/fruits/blueberry.svg"   },
+    { id: "1f951", name: "牛油果", img: "imgs/fruits/avocado.svg"     },
+    // ---- 40 只小动物 ----
     { id: "1f436", name: "小狗"   },
     { id: "1f431", name: "小猫"   },
     { id: "1f430", name: "小兔子" },
@@ -95,7 +139,22 @@
     { id: "1f984", name: "独角兽" },
     { id: "1f434", name: "小马"   },
     { id: "1f411", name: "小绵羊" },
+    // ---- 5 个甜点/小食(最后) ----
+    { id: "1f366", name: "冰淇淋" },
+    { id: "1f369", name: "甜甜圈" },
+    { id: "1f36a", name: "棒棒糖" },
+    { id: "1f36b", name: "巧克力" },
+    { id: "1f33d", name: "玉米"   },
   ];
+
+  // 分类边界(必须与上面 PETS 顺序一致)
+  var CATS = [
+    { label: "工程车", start:  0, len: 20 },
+    { label: "水果",   start: 20, len: 16 },
+    { label: "动物",   start: 36, len: 40 },
+    { label: "甜点",   start: 76, len:  5 },
+  ];
+
   var SPARKS = [
     "2b50",  // ⭐
     "1f31f", // 🌟
@@ -107,9 +166,25 @@
   ];
 
   var pet = document.getElementById("pet");
-  var petIdx = 0;
+  var hint = document.getElementById("hint");
+  var catIdx = 0;
+  var itemIdx = 0;
+  var started = false;
 
-  // 中文 TTS：每个动物名预生成的 mp3（微软云希 XiaoxiaoNeural）
+  function goFullscreen() {
+    var el = document.documentElement;
+    if (!el.requestFullscreen) return;
+    // 不再调 navigator.keyboard.lock():会让 Esc 退出全屏失灵
+    el.requestFullscreen().catch(function () {});
+  }
+
+  function exitFullscreen() {
+    if (document.exitFullscreen && document.fullscreenElement) {
+      document.exitFullscreen().catch(function () {});
+    }
+  }
+
+  // 中文 TTS：每个名字预生成的 mp3（微软云希 XiaoxiaoNeural）
   var ttsAudio = new Audio();
   ttsAudio.preload = "auto";
   function speakName(idx) {
@@ -135,22 +210,62 @@
     }
   }
 
-  function cyclePet() {
-    petIdx = (petIdx + 1) % PETS.length;
-    var p = PETS[petIdx];
-    pet.src = "emojis/" + p.id + ".svg";
+  function showCurrent() {
+    var p = PETS[CATS[catIdx].start + itemIdx];
+    pet.src = p.img ? p.img : ("emojis/" + p.id + ".svg");
     pet.classList.add("bounce");
     setTimeout(function () { pet.classList.remove("bounce"); }, 110);
     spawnSparks();
-    speakName(petIdx);
+    speakName(CATS[catIdx].start + itemIdx);
+  }
+
+  function goNext() {
+    itemIdx = (itemIdx + 1) % CATS[catIdx].len;
+    showCurrent();
+  }
+  function goPrev() {
+    itemIdx = (itemIdx - 1 + CATS[catIdx].len) % CATS[catIdx].len;
+    showCurrent();
+  }
+  function changeCategory(delta) {
+    catIdx = (catIdx + delta + CATS.length) % CATS.length;
+    itemIdx = 0;
+    showCurrent();
+  }
+
+  function start() {
+    if (started) return;
+    started = true;
+    if (hint && hint.parentNode) hint.parentNode.removeChild(hint);
+    goFullscreen();
   }
 
   document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  window.addEventListener("beforeunload", function (e) {
+    if (started) { e.preventDefault(); e.returnValue = ""; }
+  });
   document.addEventListener("keydown", function (e) {
     if (e.repeat) return;
-    if (e.key === " " || e.key === "Enter") {
+    var k = e.key;
+    if (k === " " || k === "Enter" || k === "ArrowRight") {
       e.preventDefault();
-      cyclePet();
+      if (!started) start();
+      goNext();
+    } else if (k === "ArrowLeft") {
+      e.preventDefault();
+      if (!started) start();
+      goPrev();
+    } else if (k === "ArrowDown") {
+      e.preventDefault();
+      if (!started) start();
+      changeCategory(+1);
+    } else if (k === "ArrowUp") {
+      e.preventDefault();
+      if (!started) start();
+      changeCategory(-1);
+    } else if (k === "Escape") {
+      e.preventDefault();
+      exitFullscreen();
     }
   });
 })();

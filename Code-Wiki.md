@@ -7,9 +7,9 @@
 - **定位**:面向 0~5 岁小朋友的极简网页小游戏集合;两个独立 HTML 游戏,纯键盘操作、全屏、零运行时依赖、所有资源本地。
 - **主要功能**:
   - `index.html`:键盘反应游戏。26 个字母键调用 `SpeechSynthesisUtterance` 念出英文发音,方向键/空格播放 WebAudio 合成的随机音符(C 大调音阶 + 6 种音色);每次按键从屏幕中心炸开 6 波 emoji(共 ~24 个),背景切换柔和色。
-  - `arrows.html`:动物切换游戏。空格/回车循环切换 40 只 Twemoji 矢量动物图,放大跳一下 + 中心炸开 4 颗星星,播放对应中文 mp3 念出动物名。
+  - `arrows.html`:图像切换游戏。首次空格/回车/→ 进入全屏(`requestFullscreen`,**不再调用 `keyboard.lock`**,以保证 Esc 能正常退出全屏),Esc 退出全屏;**↑/↓ 切类(工程车/水果/动物/甜点),←/→ 切图**(在当前类内循环),空/回车 = →。81 张图:车辆/动物/甜点用 Twemoji SVG;**水果 16 张改用 Microsoft Fluent Emoji Color SVG(MIT,viewBox 0 0 32 32,任意尺寸不糊)**,路径写死到 `PETS[i].img`,`showCurrent` 优先用 `img` 否则回退 `emojis/<id>.svg`。
 - **技术栈**:HTML5 + 原生 JS(ES5 IIFE 风格) + CSS 关键帧 + WebAudio API + `SpeechSynthesis` API + `edge-tts`(Python,仅用于一次性预生成中文音频)。
-- **仓库入口**:`index.html`(主)、`arrows.html`(副);离线资源目录 `emojis/`(371 个 SVG)、`tts/`(40 个 mp3)。
+- **仓库入口**:`index.html`(主)、`arrows.html`(副);离线资源目录 `emojis/`(371 个 SVG)、`imgs/fruits/`(16 个 SVG)、`tts/`(81 个 mp3)。
 
 ## 2. 整体架构
 
@@ -52,24 +52,31 @@
   - `goFullscreen()`:全屏 API + `navigator.keyboard.lock()`(Chrome/Edge),用于连 Esc 也由页面接管。
 - **依赖**:浏览器原生 API(`AudioContext`/`speechSynthesis`/`requestFullscreen`/`keyboard.lock`),`emojis/`。
 
-### 3.2 `arrows.html` — 小动物乐园(动物切换)
+### 3.2 `arrows.html` — 小动物乐园(图像切换)
 
-- **路径**:`/arrows.html`(单文件,~159 行,内联 CSS + 内联 JS)
-- **职责**:维护 `petIdx`,按键切换动物图、播放 mp3、放大跳一下、撒一波星星。
+- **路径**:`/arrows.html`(单文件,内联 CSS + 内联 JS)
+- **职责**:维护 `catIdx` + `itemIdx`,首次按键进入全屏,之后按 **↑/↓** 切类(工程车/水果/动物/甜点)、**←/→** 在类内切图,空/回车 = →;Esc 退出全屏。
 - **关键数据结构**:
-  - `PETS`:40 项 `[{id, name}]` 数组,`id` 为 emoji codepoint hex,`name` 为中文显示名。
+  - `PETS`:81 项 `[{id, name}]` 数组,`id` 为 emoji codepoint hex,`name` 为中文显示名;**进入顺序**:20 车辆/工程车(挖掘机用 🚜 1f69c 拖拉机代替)→ 16 水果(无榴莲/山竹/荔枝/火龙果/百香果,补 🥑 1f951 牛油果)→ 40 动物 → 5 甜点小食;默认起点为 `1f69c 拖拉机`。
+  - `CATS`:`[{label, start, len}]` 描述 4 段边界(0/20, 20/16, 36/40, 76/5),与 `PETS` 顺序必须保持同步。
   - `SPARKS`:7 个固定 codepoint(`2b50` ⭐、`1f31f` 🌟、`2728` ✨、`1f496` 💖、`1f308` 🌈、`1f388` 🎈、`1f36a` 🍭)。
 - **关键函数**:
+  - `goFullscreen()`:`requestFullscreen`(只调一次,**不调 `navigator.keyboard.lock`**,因为它会让 Esc 失灵)。
+  - `exitFullscreen()`:若 `document.fullscreenElement` 存在则 `exitFullscreen()`,供 Esc 显式调用。
+  - `start()`:`started = true` + 移除 `#hint` 提示 + `goFullscreen()`;幂等。
   - `speakName(idx)`:单 `<audio>` 元素复用,`pause() + currentTime=0 + src=` 防重叠。
   - `spawnSparks()`:在屏幕中心 ±266 px 范围随机位置撒 4 颗 426 px 星星,1 秒后 `remove()`。
-  - `cyclePet()`:`petIdx = (petIdx + 1) % PETS.length` 循环;`#pet.bounce` 类通过 110 ms `setTimeout` 移除还原。
-  - keydown:仅响应 `Space` / `Enter`,其余按键丢弃。
+  - `showCurrent()`:用 `CATS[catIdx].start + itemIdx` 索引 `PETS`,刷图 + bounce + sparks + TTS。
+  - `goNext()` / `goPrev()`:在当前 `CATS[catIdx].len` 内 `itemIdx` 循环。
+  - `changeCategory(delta)`:`catIdx` 循环(包头包尾),`itemIdx` 归 0。
+  - keydown:**Space/Enter/→** → `goNext()`;**←** → `goPrev()`;**↓/↑** → `changeCategory(±1)`;**Esc** → `exitFullscreen()`;首次按方向键也走 `start()`。其余按键丢弃。
+  - `beforeunload`:`started=true` 时拦截误关。
 - **依赖**:浏览器原生 `<audio>`;`emojis/`、`tts/`。
 
 ### 3.3 `scripts/gen_tts.py` — 中文 TTS 预生成器
 
-- **路径**:`/scripts/gen_tts.py`(~94 行,Python 3)
-- **职责**:用 `edge-tts` 调用微软云希 `zh-CN-XiaoxiaoNeural`,为 `arrows.html` 的 40 只动物名生成 mp3;输出到 `../tts/<codepoint>.mp3`。
+- **路径**:`/scripts/gen_tts.py`(Python 3)
+- **职责**:用 `edge-tts` 调用微软云希 `zh-CN-XiaoxiaoNeural`,为 `arrows.html` 的 81 项生成 mp3(20 车辆 + 16 水果 + 40 动物 + 5 甜点);输出到 `../tts/<codepoint>.mp3`。
 - **关键函数**:
   - `gen(out_dir, code, text)`:幂等生成(已存在且未设 `FORCE` 环境变量则跳过)。
   - `main()`:`asyncio.gather` + `Semaphore(4)` 控制并发(避免触发限流);每只动物打印 `KB` 大小或失败原因。
@@ -82,9 +89,16 @@
 - **来源/许可**:Twemoji (X Corp),CC-BY 4.0(README 注明)。
 - **依赖**:无(纯静态资产)。
 
-### 3.5 `tts/` — 预生成中文音频
+### 3.5 `imgs/fruits/` — Fluent Emoji Color SVG 水果素材
 
-- **路径**:`/tts/`(40 个 `.mp3`,与 `PETS` 一一对应)
+- **路径**:`/imgs/fruits/`(16 个 `.svg`,viewBox 0 0 32 32,合计 ~140 KB)
+- **职责**:`arrows.html` 的水果段用 `PETS[i].img` 引用本地 SVG,矢量缩放不糊(比 3D PNG 在 1066px 全屏下更清晰);其余段继续用 Twemoji SVG。
+- **依赖**:由 `scripts/download_fruits_3d.py` 从 [microsoft/fluentui-emoji](https://github.com/microsoft/fluentui-emoji)(MIT) 一次性下载。注:Fluent Emoji 没有 Orange 水果条目,用 Tangerine 代替显示为「橘子」。
+- **许可**:MIT(微软),允许商用,需保留版权。
+
+### 3.6 `tts/` — 预生成中文音频
+
+- **路径**:`/tts/`(81 个 `.mp3`,与 `PETS` 一一对应)
 - **职责**:`arrows.html` 通过 `<audio src="tts/<id>.mp3">` 直接播放;离线可用,不依赖系统 TTS 引擎。
 - **依赖**:由 `scripts/gen_tts.py` 产出。
 
@@ -94,7 +108,7 @@
 
 - **全局键盘捕获协议**(`index.html`):所有按键一律 `e.preventDefault()`,按白名单(`/^[a-zA-Z]$/`、`ArrowUp|Down|Left|Right`、`Space`)决定是否触发反馈;Esc 仅用于退出全屏;`e.repeat` 与 50 ms 去抖过滤。
 - **生命周期状态机**(`index.html`):`started = false`(初始) → 首次白名单按键 → `started = true` + `goFullscreen()` + 移除 `#welcome` 提示;`beforeunload` 在 `started=true` 时拦截误关。
-- **资源命名协议**:`emoji` codepoint → `emojis/<hex>.svg`(过滤 FE0F);动物 id → `tts/<id>.mp3` + `emojis/<id>.svg`,两套资源同 codepoint 命名,通过 `PETS` 数组绑定。
+- **资源命名协议**:`emoji` codepoint → `emojis/<hex>.svg`(过滤 FE0F);`PETS` 项 id → `tts/<id>.mp3` + `emojis/<id>.svg`,两套资源同 codepoint 命名,通过 `PETS` 数组绑定;`gen_tts.py` 的 `PETS` 列表与 `arrows.html` 严格同步,任何新增需同时改两处。
 - **常量/枚举**:
   - `EMOJIS`(`index.html`):~250 个 emoji 字符的喷发池(动物/食物/自然/交通/音乐/表情)。
   - `COLORS`(`index.html`):10 个柔和背景色 hex。
@@ -121,7 +135,7 @@
 ### 5.3 静态资源依赖
 
 - `emojis/`:Twemoji CC-BY 4.0,371 个 SVG。
-- `tts/`:由 `gen_tts.py` 产出,40 个 mp3。
+- `tts/`:由 `gen_tts.py` 产出,81 个 mp3。
 
 ### 5.4 构建/工具链
 
@@ -155,7 +169,7 @@ python3 -m venv /tmp/tts-venv && /tmp/tts-venv/bin/pip install edge-tts
 
 ### 6.4 关键配置/约束
 
-- `tts/` 内 mp3 已预生成且覆盖 `arrows.html` 全部 40 个动物名;`gen_tts.py` 默认跳过已存在文件(除非设置环境变量 `FORCE`)。
+- `tts/` 内 mp3 已预生成且覆盖 `arrows.html` 全部 81 项(动物/车辆/水果/甜点);`gen_tts.py` 默认跳过已存在文件(除非设置环境变量 `FORCE`)。
 - 全屏体验建议使用 Chrome / Edge(支持 `keyboard.lock`);`Esc` 在游戏内仅退出全屏,不退出页面;`Cmd+Tab`/`Cmd+Q` 等 macOS 系统快捷键**无法被网页拦截**(README 已标注)。
 
 ## 7. 约定与备注
@@ -177,7 +191,7 @@ python3 -m venv /tmp/tts-venv && /tmp/tts-venv/bin/pip install edge-tts
 ### 7.3 已知风险或遗留事项
 
 - macOS 系统级快捷键(`Cmd+Tab`/`Cmd+Q`/`Cmd+空格`)无法拦截,README 建议必要时改用 Chrome `--kiosk` 模式。
-- `arrows.html` 的 `tts/` 与 `gen_tts.py` 的 `PETS` 是手工同步的两份列表,新增动物时需同时改两处(README/`gen_tts.py` 顶部注释已注明)。
+- `arrows.html` 的 `tts/` 与 `gen_tts.py` 的 `PETS` 是手工同步的两份列表,新增项时需同时改两处(README/`gen_tts.py` 顶部注释已注明)。
 - 预生成 mp3 命名与 `arrows.html` 的 `PETS[].id` 一一对应;若改名需同时删除/重建 `tts/<old>.mp3`。
 - 无单元测试、无 CI、无 lint 配置;改动需人工跑 `python3 -m http.server` 验证两个页面在主流浏览器(尤其 Chrome/Edge)的全屏 + 键盘锁定体验。
 - `emojis/` 体积未追踪,新增 SVG 时需关注首屏加载(尤其 `index.html` 一次性喷射 24 个 SVG)。
